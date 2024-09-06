@@ -1,7 +1,7 @@
 from time import sleep
 from script.extra.exceptions import ChangePasswordError, LoginAppearedAgainError, MultipleSomethingWentWrongError, \
     EnterYourEmailError, AddAPhoneNumberError, ConfirmYouOwnThisAccount
-from script.extra.helper import generate_password
+from script.extra.helper import generate_random_word
 from script.extra.instagram.browser.InstagramMiddleware import InstagramMiddleware
 
 import random
@@ -202,7 +202,7 @@ class BrowserLoginEvent(InstagramMiddleware):
 
             try:
                 repeat_password_input = self.ig.page.get_by_label("New password confirmation")
-                password = generate_password()
+                password = generate_random_word()
 
                 self.ig.page.get_by_label("New password", exact=True).press_sequentially(password, delay=100,
                                                                                          timeout=3000)
@@ -232,7 +232,7 @@ class BrowserLoginEvent(InstagramMiddleware):
 
             try:
                 old_password = self.ig.page.get_by_label("Old password")
-                password = generate_password()
+                password = generate_random_word()
 
                 old_password.press_sequentially(self.ig.account.password, delay=100, timeout=3000)
                 self.ig.pause(1800, 3000)

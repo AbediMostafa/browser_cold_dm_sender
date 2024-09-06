@@ -1,4 +1,5 @@
 from script.extra.helper import pause
+import shutil
 
 
 class BaseActionState:
@@ -7,6 +8,7 @@ class BaseActionState:
     template = None
     command = None
     avatar_path = None
+    tmp = None
 
     def __init__(self, account, ig):
         self.account = account
@@ -24,6 +26,10 @@ class BaseActionState:
         except Exception as e:
             self.exception_state(e)
             raise e
+
+        finally:
+            if self.tmp:
+                shutil.rmtree(self.tmp)
 
     def get_lead_id(self, lead):
         if not lead.instagram_id:

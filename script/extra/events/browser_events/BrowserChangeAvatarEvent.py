@@ -1,16 +1,15 @@
 from script.extra.instagram.browser.InstagramMiddleware import InstagramMiddleware
-from script.models.Template import get_a, delete
-from pathlib import Path
-import os
-import platform
 from script.extra.events.browser_events.BrowserBaseEvent import BrowserBaseEvent
-from script.extra.helper import image_manipulator
+from script.extra.helper import *
+import shutil
 
 
 class BrowserChangeAvatarEvent(InstagramMiddleware):
     base = None
     command = 0
     template = 0
+    tmp = 0
+    image_path = 0
 
     def execute(self):
 
@@ -23,6 +22,7 @@ class BrowserChangeAvatarEvent(InstagramMiddleware):
             self.ig.account.add_cli(f"We don't have an avatar for : {self.ig.account.username}")
 
         try:
+            self.generate_image()
             self.before_change_hook()
             self.change_hook()
             self.after_change_hook()
@@ -36,14 +36,16 @@ class BrowserChangeAvatarEvent(InstagramMiddleware):
             self.ig.account.add_log(traceback.format_exc())
 
         finally:
+            if self.tmp:
+                shutil.rmtree(self.tmp)
             self.ig.page.goto("https://www.instagram.com/")
-            self.ig.pause(3000,4000)
+            self.ig.pause(3000, 4000)
 
-    def get_avatar_path(self, template_path):
+    def generate_image(self):
+        self.tmp = generate_random_folder()
+        image_path = self.template.download_image(self.tmp)
 
-        project_path = Path(__file__).parent.parent.parent.parent.parent if platform.system() == 'Windows' else Path(
-            __file__).parent.parent.parent.parent
-        return os.path.join(project_path, 'backend', 'storage', 'app', 'public', template_path)
+        self.image_path = process_image(image_path, self.tmp)
 
     def before_change_hook(self):
 
@@ -55,22 +57,21 @@ class BrowserChangeAvatarEvent(InstagramMiddleware):
         self.base.go_to_profile_page()
         self.ig.page.get_by_label(f"{self.ig.account.username} Instagram").click()
         self.ig.page.locator('a[aria-label="Profile picture"]').click()
-        self.ig.pause(2000, 2500)
+        self.ig.pause(3000, 4500)
 
-        avatar_path = self.get_avatar_path(self.template.text)
         self.ig.account.add_cli(
             f"We selected : {self.template.text} avatar for the : {self.ig.account.username}")
 
         self.ig.page.locator("input[accept='image/png,image/jpg,image/heif,image/heic']").nth(0).set_input_files(
-            image_manipulator(avatar_path))
+            self.image_path)
         self.ig.pause(4000, 5000)
 
         try:
-            self.ig.page.locator(f"button[name='Save']").click()
+            self.ig.page.locator(f"button[name='Save']").click(timeout=3000)
         except:
             self.ig.page.locator('div[role="button"] span:text("Save")').first.click(force=True)
 
-        self.ig.pause(10000, 12000)
+        self.ig.pause(15000, 17000)
 
     def after_change_hook(self):
         self.command.update_cmd('state', 'success')

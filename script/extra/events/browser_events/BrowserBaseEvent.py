@@ -10,9 +10,9 @@ class BrowserBaseEvent:
     def go_to_profile_page(self):
         self.ig.account.add_cli('Going to Accounts profile page')
         self.ig.page.goto('https://www.instagram.com/accounts/edit/')
-        self.ig.pause(3000, 4000)
+        self.ig.pause(4000, 5000)
         self.ig.page.goto("https://accountscenter.instagram.com/?entry_point=app_settings")
-        self.ig.pause(2000, 3500)
+        self.ig.pause(3000, 4500)
         self.ig.account.add_cli('After profile load timeout')
 
     def go_to_threads(self):

@@ -3,11 +3,14 @@ from .Base import BaseModel
 import json
 from datetime import datetime, timedelta
 from .Proxy import Proxy
+from .Color import Color, get_next_color
 import random
 
 
 class Account(BaseModel):
     proxy = ForeignKeyField(Proxy, backref='accounts', null=True)
+    color = ForeignKeyField(Color, backref='accounts', null=True)
+
     secret_key = CharField(null=True)
     username = CharField(unique=True)
     password = CharField()
@@ -110,7 +113,8 @@ class Account(BaseModel):
             ~(Template.id << (AccountTemplate
                               .select(AccountTemplate.template)
                               .join(Template)
-                              .where((AccountTemplate.account == self) & (Template.type == type))
+                              .where((AccountTemplate.account == self) &
+                                     (Template.type == type))
                               ))
         )
                 .order_by(fn.Rand())
@@ -270,6 +274,37 @@ class Account(BaseModel):
 
         time_delta = max(self.next_login - datetime.now(), timedelta(0))
         return self.next_login > datetime.now(), time_delta
+
+    def get_color(self):
+        if not self.color:
+            self.color = get_next_color()
+            self.save()
+
+        self.add_cli(f"Account's color : {self.color.title}")
+        return self.color
+
+    def get_a_carousel(self):
+        from .AccountTemplate import AccountTemplate
+        from .Template import Template
+
+        selected_templates_subquery = (AccountTemplate
+                                       .select(AccountTemplate.template)
+                                       .where(AccountTemplate.account == self))
+
+        # get a single free carousel
+        available_carousel = (Template
+                              .select()
+                              .where(
+            (Template.type == 'carousel') &
+            (Template.color == self.get_color()) &
+            (~(Template.id << selected_templates_subquery))
+        ).first())
+
+        # return series of carousels
+        return (Template
+                .select()
+                .where(Template.carousel_id == available_carousel.carousel_id)
+                .order_by(Template.uid)) if available_carousel else None
 
     class Meta:
         table_name = 'accounts'

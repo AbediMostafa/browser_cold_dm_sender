@@ -1,6 +1,6 @@
 import traceback
 from .BaseActionState import BaseActionState
-from script.extra.helper import get_post_path
+from script.extra.helper import get_post_url
 
 
 class PostVideoEvent(BaseActionState):
@@ -28,7 +28,7 @@ class PostVideoEvent(BaseActionState):
         return False
 
     def success_state(self):
-        self.video_path = get_post_path(self.template.text)
+        self.video_path = get_post_url(self.template.text)
         self.account.add_cli(
             f"We selected : {self.template.text} post video for the : {self.account.username}")
 

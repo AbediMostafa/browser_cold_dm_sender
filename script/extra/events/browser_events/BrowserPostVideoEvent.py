@@ -1,11 +1,5 @@
 from script.extra.instagram.browser.InstagramMiddleware import InstagramMiddleware
-from script.models.Template import get_a, delete
-from pathlib import Path
-import os
-import platform
-from script.extra.events.browser_events.BrowserBaseEvent import BrowserBaseEvent
-from script.extra.helper import image_manipulator
-from script.extra.helper import get_post_path, image_manipulator, chat_ai
+from script.extra.helper import *
 
 
 class BrowserPostVideoEvent(InstagramMiddleware):
@@ -47,7 +41,7 @@ class BrowserPostVideoEvent(InstagramMiddleware):
             self.ig.pause(3000, 4000)
 
     def generate_video(self):
-        self.video_path = get_post_path(self.template.text)
+        self.video_path = get_post_url(self.template.text)
 
     def generate_caption(self):
         prompt = f'rewrite this text without plagiarism please remove extra text and give me pure text:{self.template.caption}'

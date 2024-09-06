@@ -1,22 +1,14 @@
 import traceback
 from .BaseActionState import BaseActionState
-from pathlib import Path
-import os
-import platform
+import shutil
 
-from script.extra.helper import image_manipulator
+from script.extra.helper import *
 
 
 class ChangeAvatarEvent(BaseActionState):
 
     def cant(self):
         return self.account.avatar_changed or not self.template
-
-    def get_avatar_path(self, template_path):
-
-        project_path = Path(__file__).parent.parent.parent.parent.parent if platform.system() == 'Windows' else Path(
-            __file__).parent.parent.parent.parent
-        return os.path.join(project_path, 'backend', 'storage', 'app', 'public', template_path)
 
     def init_state(self):
         self.account.add_cli(f"Changing {self.account.username}'s avatar")
@@ -33,13 +25,15 @@ class ChangeAvatarEvent(BaseActionState):
         return False
 
     def success_state(self):
-        self.avatar_path = self.get_avatar_path(self.template.text)
         self.account.add_cli(
             f"We selected : {self.template.text} avatar for the : {self.account.username}")
         self.account.set_state('set avatar', 'app_state')
         self.command = self.account.create_command('set avatar', 'processing')
 
-        self.ig.change_avatar(image_manipulator(self.avatar_path))
+        self.tmp = generate_random_folder()
+        image_path = self.template.download_image(self.tmp)
+
+        self.ig.change_avatar(process_image(image_path, self.tmp))
 
         self.command.update_cmd('state', 'success')
         self.account.set('avatar_changed', 1)

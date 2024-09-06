@@ -11,6 +11,8 @@ from pathlib import Path
 from PIL import Image
 import os
 from random import randint
+from dotenv import load_dotenv
+import requests
 
 
 def pause(_min, _max):
@@ -27,20 +29,43 @@ def test_accounts():
     return leads
 
 
-def get_post_path(template_path):
-    project_path = Path(__file__).parent.parent.parent
-    return os.path.join(project_path, 'backend', 'storage', 'app', 'public', template_path)
+def generate_random_folder():
+    tmp = os.path.join('tmp_folder', generate_random_word(20))
+    os.makedirs(tmp, exist_ok=True)
+
+    return tmp
 
 
-def image_manipulator(path):
+def get_post_url(template_path):
+    load_dotenv()
+    server_url = os.getenv('SERVER_URL')
+
+    return f"{server_url}/storage/{template_path}"
+
+
+def download_image(image_url, download_path):
+    response = requests.get(image_url)
+    if response.status_code == 200:
+        os.makedirs(os.path.dirname(download_path), exist_ok=True)
+        with open(download_path, 'wb') as f:
+            f.write(response.content)
+        return download_path
+    else:
+        raise Exception(f"Failed to download image from {image_url}. Status code: {response.status_code}")
+
+
+def process_image(image_path, output_dir):
+
+    image_name = f'{generate_random_word(20)}.jpg'
+
     # Load the image using skimage
-    image = io.imread(path)
+    image = io.imread(image_path)
 
     # Apply Gaussian noise
-    noisy_image = util.random_noise(image, mode='gaussian', var=0.01)
+    # noisy_image = util.random_noise(image, mode='gaussian', var=0.01)
 
     # Apply a slight rotation
-    rotated_image = transform.rotate(noisy_image, angle=randint(1, 10), mode='wrap')
+    rotated_image = transform.rotate(image, angle=randint(1, 10), mode='wrap')
 
     # Adjust brightness and contrast
     adjusted_image = exposure.adjust_gamma(rotated_image, gamma=0.9)
@@ -48,32 +73,32 @@ def image_manipulator(path):
     # Convert the image to uint8 (8-bit unsigned integer)
     adjusted_image_uint8 = (adjusted_image * 255).astype(np.uint8)
 
-    # Save the image temporarily with skimage
-    temp_path = 'temp_image.png'
+    # Save the image temporarily within the temp directory
+    temp_path = os.path.join(output_dir, 'temp_image.png')
     io.imsave(temp_path, adjusted_image_uint8)
 
     # Open the image with PIL to handle RGBA to RGB conversion
+    output_path = os.path.join(output_dir, image_name)
+
     with Image.open(temp_path) as img:
         # Convert RGBA to RGB if necessary
         if img.mode == 'RGBA':
             img = img.convert('RGB')
 
         # Save the final image as JPEG
-        output_path = 'generated_image.jpg'
         img.save(output_path)
 
     # Clean up the temporary image
     os.remove(temp_path)
 
-    project_path = Path(__file__).parent.parent
-    return os.path.join(project_path, output_path)
+    return output_path
 
 
 def chat_ai(prompt, max_tokens=400, temperature=0.7, top_p=1.0, frequency_penalty=0.0, presence_penalty=0.0):
     from openai import OpenAI
 
-    # Set your API key
-    client = OpenAI(api_key='')
+    load_dotenv()
+    client = OpenAI(api_key=os.getenv('OPENAI_SECRET_KEY'))
 
     try:
         response = client.chat.completions.create(
@@ -122,7 +147,7 @@ def get_random_user_agent():
     return random.choice(user_agents)
 
 
-def generate_password(length=10):
+def generate_random_word(length=10):
     characters = string.ascii_letters + string.digits
     password = ''.join(random.choice(characters) for _ in range(length))
     return password

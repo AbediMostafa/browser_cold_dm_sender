@@ -1,11 +1,6 @@
 from script.extra.instagram.browser.InstagramMiddleware import InstagramMiddleware
-from script.models.Template import get_a, delete
-from pathlib import Path
-import os
-import platform
-from script.extra.events.browser_events.BrowserBaseEvent import BrowserBaseEvent
-from script.extra.helper import image_manipulator
-from script.extra.helper import get_post_path, image_manipulator, chat_ai
+from script.extra.helper import *
+import shutil
 
 
 class BrowserPostImageEvent(InstagramMiddleware):
@@ -14,6 +9,7 @@ class BrowserPostImageEvent(InstagramMiddleware):
     template = None
     image_path = 0
     caption = 0
+    tmp = 0
 
     def execute(self):
         self.ig.account.add_cli(f"Posting an image ...")
@@ -26,10 +22,9 @@ class BrowserPostImageEvent(InstagramMiddleware):
         if not self.template:
             return self.ig.account.add_cli(f"We don't have a post image for this account")
 
-        self.generate_image()
-        self.generate_caption()
-
         try:
+            self.generate_image()
+            self.generate_caption()
             self.before_change_hook()
             self.change_hook()
             self.after_change_hook()
@@ -43,12 +38,16 @@ class BrowserPostImageEvent(InstagramMiddleware):
             self.ig.account.add_log(traceback.format_exc())
 
         finally:
+            if self.tmp:
+                shutil.rmtree(self.tmp)
             self.ig.page.goto("https://www.instagram.com/")
             self.ig.pause(3000, 4000)
 
     def generate_image(self):
-        self.image_path = get_post_path(self.template.text)
-        image_manipulator(self.image_path)
+        self.tmp = generate_random_folder()
+        image_path = self.template.download_image(self.tmp)
+
+        self.image_path = process_image(image_path, self.tmp)
 
     def generate_caption(self):
         prompt = f'rewrite this text without plagiarism please remove extra text and give me pure text:{self.template.caption}'
@@ -64,7 +63,7 @@ class BrowserPostImageEvent(InstagramMiddleware):
         except:
             self.ig.page.get_by_role("link", name="New post").click()
 
-        self.ig.pause(2000, 3000)
+        self.ig.pause(3000, 4000)
 
         try:
             self.ig.page.locator('a[href="#"]:has(svg[aria-label="Post"])').click(timeout=3000)
@@ -78,7 +77,7 @@ class BrowserPostImageEvent(InstagramMiddleware):
         self.ig.pause(3000, 3500)
         self.ig.page.locator(
             "input[accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']").nth(
-            0).set_input_files('generated_image.jpg')
+            0).set_input_files(self.image_path)
         self.ig.pause(3000, 3500)
 
         self.ig.page.get_by_role("button", name="Next").click()
@@ -91,7 +90,7 @@ class BrowserPostImageEvent(InstagramMiddleware):
         self.ig.pause(2000, 3500)
 
         self.ig.page.get_by_role("button", name="Share").click()
-        self.ig.pause(10000, 12000)
+        self.ig.pause(15000, 17000)
 
         try:
             self.ig.page.get_by_role("button", name="Close").press("Escape")

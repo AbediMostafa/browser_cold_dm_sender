@@ -1,6 +1,6 @@
 import traceback
 from .BaseActionState import BaseActionState
-from script.extra.helper import get_post_path, image_manipulator, chat_ai
+from script.extra.helper import *
 
 import os
 from pathlib import Path
@@ -33,10 +33,10 @@ class PostImageEvent(BaseActionState):
         return False
 
     def generate_image(self):
-        self.image_path = get_post_path(self.template.text)
-        image_manipulator(self.image_path)
-        self.account.add_cli(
-            f"We selected : {self.template.text} post image for the : {self.account.username}")
+        self.tmp = generate_random_folder()
+        image_path = self.template.download_image(self.tmp)
+
+        self.image_path = process_image(image_path, self.tmp)
 
     def generate_caption(self):
         prompt = f'rewrite this text without plagiarism please remove extra text and give me pure text:{self.template.caption}'
@@ -49,7 +49,7 @@ class PostImageEvent(BaseActionState):
         self.account.set_state('post image', 'app_state')
         self.command = self.account.create_command('post image', 'processing')
 
-        self.ig.photo_upload('generated_image.jpg', self.caption)
+        self.ig.photo_upload(self.image_path, self.caption)
 
         self.command.update_cmd('state', 'success')
         self.account.attach_template(self.template)

@@ -1,32 +1,34 @@
 import random
 
 from script.extra.instagram.browser.InstagramMiddleware import InstagramMiddleware
-from script.extra.helper import get_post_path, image_manipulator, chat_ai
+from script.extra.helper import *
 import random
+import shutil
 
 
 class BrowserPostCarouselEvent(InstagramMiddleware):
     base = None
     command = 0
-    template = None
+    carousel_dict = None
+    carousel_image = None
     image_path = 0
     caption = 0
+    tmp = 0
 
     def execute(self):
         self.ig.account.add_cli(f"Posting an image ...")
 
-        if self.ig.account.should_not_post('post carousel', random.randint(12,24)):
+        if self.ig.account.should_not_post('post carousel', random.randint(12, 24)):
             return self.ig.account.add_cli("Cant post an image today")
 
-        self.template = self.ig.account.get_a_free_template('image-post')
+        self.carousel_dict = self.ig.account.get_a_carousel()
 
-        if not self.template:
-            return self.ig.account.add_cli(f"We don't have a post image for this account")
-
-        self.generate_image()
-        self.generate_caption()
+        if not self.carousel_dict:
+            return self.ig.account.add_cli("We don't have any carousel")
 
         try:
+            self.generate_images()
+            self.generate_caption()
             self.before_change_hook()
             self.change_hook()
             self.after_change_hook()
@@ -36,24 +38,38 @@ class BrowserPostCarouselEvent(InstagramMiddleware):
 
             if self.command:
                 self.command.update_cmd('state', 'fail')
-            self.ig.account.add_cli(f"Problem changing avatar : {str(e)}")
+            self.ig.account.add_cli(f"Problem Posting Carousel : {str(e)}")
+            # self.ig.pause(30000, 40000)
             self.ig.account.add_log(traceback.format_exc())
 
         finally:
             self.ig.page.goto("https://www.instagram.com/")
             self.ig.pause(3000, 4000)
+            shutil.rmtree(self.tmp)
 
-    def generate_image(self):
-        self.image_path = get_post_path(self.template.text)
-        image_manipulator(self.image_path)
+    def generate_images(self):
+
+        self.tmp = generate_random_folder()
+
+        for carousel_image in self.carousel_dict:
+            image_path = carousel_image.download_image(self.tmp)
+
+            # Here we use generate password to generate a unique word for image name
+            carousel_image.image_path = process_image(image_path, self.tmp)
+
+            self.ig.account.add_cli(f"Carousel image path : {carousel_image.image_path}")
 
     def generate_caption(self):
-        prompt = f'rewrite this text without plagiarism please remove extra text and give me pure text:{self.template.caption}'
+        first_carousel = self.carousel_dict[0]
+        self.ig.account.add_cli('Generating caption...')
+
+        prompt = f'rewrite this text without plagiarism please remove extra text and give me pure text:{first_carousel.caption}'
         self.caption = chat_ai(prompt)
+        self.ig.account.add_cli(f'Generated caption: {self.caption}')
 
     def before_change_hook(self):
-        self.ig.account.set_state('post image', 'app_state')
-        self.command = self.ig.account.create_command('post image', 'processing')
+        self.ig.account.set_state('post carousel', 'app_state')
+        self.command = self.ig.account.create_command('post carousel', 'processing')
 
     def change_hook(self):
         try:
@@ -73,10 +89,24 @@ class BrowserPostCarouselEvent(InstagramMiddleware):
                 pass
 
         self.ig.pause(3000, 3500)
-        self.ig.page.locator(
-            "input[accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']").nth(
-            0).set_input_files('generated_image.jpg')
-        self.ig.pause(3000, 3500)
+
+        clicked_on_filter = False
+
+        for carousel_image in self.carousel_dict:
+
+            # page.get_by_role("button", name="Plus icon").click()
+            # page.get_by_role("button", name="Plus icon").set_input_files("48Y2aWc7SQnXROhG9ygxun3imVDnwrGCSHrtfywA.png")
+
+            self.ig.page.locator(
+                "input[accept='image/jpeg,image/png,image/heic,image/heif,video/mp4,video/quicktime']").nth(
+                0).set_input_files(carousel_image.image_path)
+
+            if not clicked_on_filter:
+                self.ig.pause(1000, 1700)
+                self.ig.page.locator("button").filter(has_text="Open media gallery").click()
+                clicked_on_filter = True
+
+            self.ig.pause(3000, 3500)
 
         self.ig.page.get_by_role("button", name="Next").click()
         self.ig.pause(2000, 3500)
@@ -88,7 +118,7 @@ class BrowserPostCarouselEvent(InstagramMiddleware):
         self.ig.pause(2000, 3500)
 
         self.ig.page.get_by_role("button", name="Share").click()
-        self.ig.pause(10000, 12000)
+        self.ig.pause(14000, 16000)
 
         try:
             self.ig.page.get_by_role("button", name="Close").press("Escape")
@@ -97,5 +127,7 @@ class BrowserPostCarouselEvent(InstagramMiddleware):
 
     def after_change_hook(self):
         self.command.update_cmd('state', 'success')
-        self.ig.account.attach_template(self.template)
+        for carousel_image in self.carousel_dict:
+            self.ig.account.attach_template(carousel_image)
+
         self.ig.account.add_cli("Image posted successfully")

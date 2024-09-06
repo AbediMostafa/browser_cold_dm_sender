@@ -5,7 +5,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from script.models.Command import Command
 from script.extra.instagram.api.InstagramMobile import InstagramMobile
-from script.extra.helper import get_post_path
+from script.extra.helper import get_post_url
 
 if len(sys.argv) > 1:
     command_id = sys.argv[1]
@@ -15,7 +15,7 @@ if len(sys.argv) > 1:
     thread_id = message.thread.thread_id
 
     loom = message.get_messageable()
-    loom_abs_path = get_post_path(loom.path)
+    loom_abs_path = get_post_url(loom.path)
 
     ig_mobile = InstagramMobile(command.account)
     ig_mobile.set_proxy().log_in()

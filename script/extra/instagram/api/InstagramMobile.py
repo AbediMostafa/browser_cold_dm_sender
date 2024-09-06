@@ -54,9 +54,8 @@ class InstagramMobile(InstagramMobileMiddleware):
 
             try:
                 self.account.add_cli("Trying to get feeds")
-                GetThreadMessagesEvent(self.account, self).fire()
+                self.feeds = self.get_timeline_feed()
 
-                # self.feeds = self.get_timeline_feed()
             except Exception as e:
                 self.account.add_cli(str(e))
                 old_session = self.client.get_settings()
@@ -70,7 +69,7 @@ class InstagramMobile(InstagramMobileMiddleware):
                 )
 
                 self.account.add_cli("Trying to get feeds again ... ")
-                GetThreadMessagesEvent(self.account, self).fire()
+                self.feeds = self.get_timeline_feed()
 
             self.account.save_mobile_session(self.client.get_settings())
 
